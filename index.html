@@ -319,49 +319,65 @@
             document.getElementById('input-stop').value = localStorage.getItem('bus_s');
         }
 
-        // 5. 抓取九巴到站班次
-        async function updateBusData() {
-            const r = localStorage.getItem('bus_r');
-            const s = localStorage.getItem('bus_s');
-            const container = document.getElementById('bus-rows-container');
-            if(!r || !s) return;
+        // 5. 抓取九巴到站班次 (直接 Fetch，唔用任何不穩定嘅代理)
+async function updateBusData() {
+    const r = localStorage.getItem('bus_r'); // 路線 (e.g., 95)
+    const s = localStorage.getItem('bus_s'); // 車站 ID (e.g., E15A...)
+    const container = document.getElementById('bus-rows-container');
+    
+    if(!r || !s) return;
 
-            try {
-                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://data.etabus.gov.hk/v1/transport/kmb/route-eta/' + r + '/1')}`);
-                const json = await res.json();
-                const stopData = json.data.filter(item => item.stop === s);
+    try {
+        // 直接呼叫九巴 API（九巴官方其實有開通部分跨域，直接呼叫更乾淨）
+        const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r}/1`);
+        const json = await res.json();
+        
+        // 篩選出對應車站代碼嘅數據
+        const stopData = json.data.filter(item => item.stop === s);
 
-                if(stopData.length > 0) {
-                    let html = '';
-                    // 仿照第一張圖顯示兩班車
-                    for(let i=0; i < Math.min(stopData.length, 2); i++) {
-                        const min = stopData[i].minutes_to_arrival;
-                        const dest = stopData[i].dest_tc;
-                        html += `
-                            <div class="bus-row">
-                                <div>
-                                    <span class="route-no">${r}</span>
-                                    <div class="dest">往 ${dest}</div>
-                                </div>
-                                <div>
-                                    <span class="min-big">${min !== null ? min : '--'}</span>
-                                    <span style="font-size:20px; color:#0066cc; font-weight:bold;">${min !== null ? ' min' : ''}</span>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `<div style="padding:40px; text-align:center; color:red;">搵唔到呢個 Stop ID 嘅班次，請重新檢查。</div>`;
-                }
-            } catch(e) { container.innerHTML = `<div style="padding:40px; text-align:center; color:red;">網絡連線失敗。</div>`; }
+        if(stopData.length > 0) {
+            let html = '';
+            // 顯示最頂嘅兩班車
+            for(let i=0; i < Math.min(stopData.length, 2); i++) {
+                const min = stopData[i].minutes_to_arrival;
+                const dest = stopData[i].dest_tc;
+                
+                let timeDisplay = min !== null ? min : '即到';
+                let unitDisplay = min !== null ? ' min' : '';
+
+                html += `
+                    <div class="bus-row">
+                        <div>
+                            <span class="route-no">${r}</span>
+                            <div class="dest">往 ${dest}</div>
+                        </div>
+                        <div>
+                            <span class="min-big">${timeDisplay}</span>
+                            <span style="font-size:20px; color:#0066cc; font-weight:bold;">${unitDisplay}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        } else {
+            container.innerHTML = `<div style="padding:40px; text-align:center; color:red; font-size:18px;">搵唔到路線 ${r} 喺呢個車站嘅班次。<br><small style="color:#666;">請確保 Stop ID同埋線路號碼正確（如 95 唔好寫成 095）。</small></div>`;
         }
+    } catch(e) { 
+        console.error("KMB API Error:", e);
+        container.innerHTML = `<div style="padding:40px; text-align:center; color:red;">網絡連線失敗。</div>`; 
+    }
+}
 
-        // 每 1 分鐘自動更新班次及快拍圖像
-        setInterval(() => {
-            updateBusData();
-            document.getElementById('cam-img').src = "https://tdcctv.data.gov.hk/N411F.JPG?t=" + new Date().getTime();
-        }, 60000);
+// ⏳ 定時更新功能 (確保快拍用完整正確嘅域名)
+setInterval(() => {
+    updateBusData();
+    const ts = new Date().getTime();
+    // 修正：必須要用完整的 https://tdcctv.data.gov.hk/ 域名
+    const fullCamUrl = "https://tdcctv.data.gov.hk/N411F.JPG?t=" + ts;
+    
+    const camImg = document.getElementById('cam-img');
+    if(camImg) camImg.src = fullCamUrl;
+}, 60000);
 
     </script>
 </body>
