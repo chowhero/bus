@@ -327,7 +327,7 @@
             if(!r || !s) return;
 
             try {
-                const res = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-eta/${r}/1`);
+                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://data.etabus.gov.hk/v1/transport/kmb/route-eta/' + r + '/1')}`);
                 const json = await res.json();
                 const stopData = json.data.filter(item => item.stop === s);
 
